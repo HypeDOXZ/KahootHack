@@ -1,23 +1,18 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kahoot Hack FINAL</title><style>body{font-family:Arial;max-width:700px;margin:50px auto;padding:20px;background:#f0f2f5}input{padding:15px;font-size:20px;width:250px;border:2px solid #007bff;border-radius:8px}button{padding:15px 30px;font-size:18px;background:#ff6b35;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold}#status{margin:20px 0;padding:15px;background:white;border-radius:8px;border-left:5px solid #007bff;font-size:16px}#debug{padding:10px;margin:5px 0;background:#e9ecef;border-radius:5px;font-family:monospace;font-size:14px}.question{margin:20px 0;padding:20px;background:#d4edda;border-radius:10px;border-left:5px solid #28a745}.answer{padding:10px;margin:5px 0;background:white;border-radius:5px}.correct{background:#28a745;color:white;font-weight:bold}</style></head><body>
-<h1>🎮 Kahoot Hack (No Firewall Bypass)</h1>
-<input type="text" id="pin" placeholder="PIN" maxlength="7" style="text-transform:uppercase">
-<button onclick="hack()">💥 Extract LIVE</button>
-<div id="status">Enter PIN → LIVE game needed</div>
-<div id="debug"></div><div id="quiz"></div>
+<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kahoot Rocks Clone</title><style>body{font-family:system-ui;background:#000;color:#0f0;padding:20px;max-width:600px;margin:auto}input,button{padding:12px;font-size:18px;border:1px solid #0f0;background:#111;color:#0f0;border-radius:6px}button:hover{background:#0f0;color:#000;cursor:pointer}#log{background:#111;padding:15px;height:300px;overflow:auto;font-family:monospace;font-size:14px;border:1px solid #0f0;border-radius:6px;white-space:pre-wrap}#quiz{padding:15px}.q{padding:10px;margin:8px 0;background:#001100;border-left:3px solid #0f0}.a{padding:5px;margin:2px}.correct{background:#0a0;color:#fff !important}</style></head><body>
+<h1>🌑 Kahoot Rocks (kahoot.club Clone)</h1>
+<input id="p" placeholder="Game PIN" maxlength="7"><button onclick="go()">🎮 Join & Hack</button>
+<div id="log">Enter PIN → Make game LIVE → Hack</div>
+<div id="quiz"></div>
 
 <script>
-let ws,pin,logs=[],q=[],d=document.getElementById('debug'),s=document.getElementById('status');
-function l(m,c='black'){logs.push(m);d.innerHTML=logs.slice(-12).map(x=>`<div style="color:${c}">${x}</div>`);}
-function hack(){pin=document.getElementById('pin').value.toUpperCase();if(pin.length<6){l('❌ 6-7 chars','red');return;}
-s.innerHTML='🔄 LIVE WS connect...';q=[];logs=[];
-const e=['kahoot.it','play.kahoot.it','game.kahoot.it'];c(e,0);}
+let w,s=prompt||'',q=[],l=document.getElementById('log');
+function log(x){l.innerHTML+=x+'\n';l.scrollTop=l.scrollHeight;}
+function go(){let pin=document.getElementById('p').value.toUpperCase();if(pin.length<6){log('❌ 6-7 chars');return;}
+log('🔗 https://kahoot.club style connect...');w=new WebSocket('wss://play.kahoot.it/cometd/'+pin.toLowerCase());
+w.onopen=()=>{log('✅ Connected (kahoot.club method)');w.send('[{"channel":"/meta/handshake","version":"1.0","supportedConnectionTypes":["websocket"]},{"channel":"/service/player","data":{"gameid":"'+pin+'","host":"play.kahoot.it","id":"rocks-"+Date.now()}}]');};
+w.onmessage=e=>{let d;try{d=JSON.parse(e.data);parse(d);}catch{log('raw: '+e.data.slice(0,100));}};
+w.onerror=()=>log('❌ Blocked? Try during LIVE question');}
 
-function c(e,i){if(i>=e.length){l('❌ School firewall? Try phone data','red');return;}
-l(`WS → ${e[i]}`,'orange');ws=new WebSocket(`wss://${e[i]}/cometd/${pin.toLowerCase()}`);
-ws.onopen=()=>{l('✅ LIVE! '+e[i],'green');ws.send(JSON.stringify([{channel:'/meta/handshake',version:'1.0',supportedConnectionTypes:['websocket']},{channel:'/service/player',data:{gameid:pin,host:e[i],id:'hacker'+Date.now()}}]));};
-ws.onmessage=e=>{l(`📦 ${e.data.slice(0,60)}`,'purple');try{parse(JSON.parse(e.data));}catch{l('data rx','gray');}};
-ws.onerror=()=>setTimeout(()=>c(e,i+1),2e3);}
-
-function parse(data){if(!Array.isArray(data))data=[data];data.forEach(m=>{if(m.channel&&m.data&&(m.data.question||m.data.quizQuestion||m.data.questions)){let q={text:m.data.question?.question||'Q'+(q.length+1),ans:[]};(m.data.answers||m.data.choices||m.data.answerChoices||[]).forEach((a,j)=>{q.ans.push({t:a.answer||a.text||`#${j+1}`,c:!!a.correct});});if(q.ans.length&&!q.some(x=>x.text===q.text)){q.push(q);show();l(`✅ Q${q.length}`,'green');}}});}
-function show(){let h='<h2>✅ ANSWERS:</h2>';q.forEach((x,i)=>h+=`<div class="question"><b>Q${i+1}:</b> ${x.text}<br>${x.ans.map(a=>`<div class="answer ${a.c?'correct':''}">📍 ${a.t}</div>`).join('')}</div>`);document.getElementById('quiz').innerHTML=h;s.innerHTML='✅ LIVE answers ↑';}
+function parse(d){if(!Array.isArray(d))d=[d];d.forEach(x=>{if(x.channel&&x.data){let qz=x.data.quizQuestion||x.data.question;if(qz){let qq={t:qz.question||'',a:[]};(qz.choices||qz.answers||[]).forEach((y,i)=>{qq.a.push({t:y.answer||y.text||'A'+i,c:y.correct||false});});if(qq.a.length&&!q.find(z=>z.t===qq.t)){q.push(qq);show();log('✅ Q'+q.length+': '+qq.t.slice(0,40));}}}});}
+function show(){let h='';q.forEach((x,i)=>h+='<div class="q"><b>Q'+(i+1)+':</b> '+x.t+'<div>'+x.a.map(y=>'<div class="a '+(y.c?'correct':'')+'">📍 '+y.t+'</div>').join('')+'</div></div>');document.getElementById('quiz').innerHTML=h;}
 </script></body></html>
