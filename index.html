@@ -1,95 +1,92 @@
 <!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Kahoot Hack - School Mode</title>
+<title>Kahoot Hack v2 - 2026 Protocol</title>
 <style>body{font-family:Arial;max-width:700px;margin:50px auto;padding:20px;background:#f0f2f5}
 input{padding:15px;font-size:20px;width:250px;border:2px solid #007bff;border-radius:8px}
 button{padding:15px 30px;font-size:18px;background:#28a745;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold}
-button:hover{background:#218838}
 #status{margin:20px 0;padding:15px;background:white;border-radius:8px;border-left:5px solid #007bff;font-size:16px}
 .log{padding:10px;margin:5px 0;background:#e9ecef;border-radius:5px;font-family:monospace;font-size:14px}
 .question{margin:20px 0;padding:20px;background:#d4edda;border-radius:10px;border-left:5px solid #28a745}
 .answer{padding:10px;margin:5px 0;background:white;border-radius:5px}
 .correct{background:#28a745 !important;color:white !important;font-weight:bold !important}
-</style>
-</head><body>
-<h1>🎮 Kahoot Hack (School Chromebook)</h1>
-<input type="text" id="pin" placeholder="Enter 6-7 char PIN" maxlength="7" style="text-transform:uppercase">
-<button onclick="joinGame()">🚀 Extract Answers</button>
-<div id="status">Enter PIN & click Extract</div>
-<div id="debug"></div>
-<div id="quiz"></div>
+</style></head><body>
+<h1>🎮 Kahoot Hack 2026</h1>
+<input type="text" id="pin" placeholder="Game PIN" maxlength="7" style="text-transform:uppercase">
+<button onclick="joinGame()">🚀 Get Answers</button>
+<div id="status">PIN → Extract</div>
+<div id="debug"></div><div id="quiz"></div>
 
 <script>
-let ws=null, gamePin='', logs=[], questions=[];
+let ws=null,gamePin='',logs=[],questions=[];
 const debugDiv=document.getElementById('debug');
 
-function addLog(msg,color='black'){logs.push(msg);debugDiv.innerHTML=logs.slice(-10).map(l=>`<div class="log" style="color:${color}">${l}</div>`).join('');}
-
-function joinGame(){
-gamePin=document.getElementById('pin').value.trim().toUpperCase();
-if(gamePin.length<6){addLog('❌ Need 6-7 chars','red');return;}
-document.getElementById('quiz').innerHTML='';questions=[];logs=[];
-addLog(`🔄 Testing PIN: ${gamePin}`,'blue');
-
-const endpoints=['kahoot.it','kahoot.to','create.kahoot.it'];
-connectNext(endpoints,0);
+function addLog(msg,color='black'){
+logs.push(msg);debugDiv.innerHTML=logs.slice(-15).map(l=>`<div class="log" style="color:${color}">${l}</div>`).join('');
 }
 
-function connectNext(endpoints,i){
-if(i>=endpoints.length){addLog('❌ All servers failed. Game LIVE? Try again in 30s','red');return;}
-const url=`wss://${endpoints[i]}/cometd/${gamePin.toLowerCase()}`;
-addLog(`Trying ${endpoints[i]}...`,'orange');
-ws=new WebSocket(url);
+async function joinGame(){
+gamePin=document.getElementById('pin').value.trim().toUpperCase();
+if(gamePin.length<6){addLog('❌ 6-7 chars','red');return;}
+addLog(`🔄 PIN: ${gamePin}`,'blue');
+
+// Step 1: Get fresh auth token via public API
+try{
+const tokenResp=await fetch(`https://kahoot.it/reserve/session/${gamePin}/123456789`,{method:'PUT'});
+const sessionData=await tokenResp.json();
+addLog('✅ Session token OK','green');
+
+// Step 2: New v2 WebSocket
+const wsUrl=`wss://kahoot.it/v2/cometd/${gamePin}?token=${sessionData.token}`;
+addLog('🔗 New WS v2','blue');
+ws=new WebSocket(wsUrl);
 
 ws.onopen=()=>{
-addLog(`✅ ${endpoints[i]} connected!`,'green');
-ws.send(JSON.stringify([{channel:'/meta/handshake',version:'1.0',supportedConnectionTypes:['websocket'],id:'1'},{channel:'/service/player',data:{gameid:gamePin,host:endpoints[i],id:'p'+Date.now()},id:'2'}]));
+addLog('✅ v2 Connected!','green');
+ws.send(JSON.stringify({
+channel:'/meta/handshake',
+version:'1.0',
+supportedConnectionTypes:['websocket'],
+clientId:sessionData.clientId
+}));
+ws.send(JSON.stringify({
+channel:'/service/controller',
+data:{
+gameid:gamePin,
+host:'kahoot.it',
+session:sessionData.token,
+joinTime:Date.now()
+}
+}));
 };
 
 ws.onmessage=e=>{
-addLog(`📦 Packet (${e.data.length} bytes)`,'purple');
-try{parseData(JSON.parse(e.data));}catch{addLog('Raw data received','gray');}
+addLog(`📦 Data: ${e.data.slice(0,80)}`,'purple');
+parseData(JSON.parse(e.data));
 };
 
-ws.onerror=()=>setTimeout(()=>connectNext(endpoints,i+1),1500);
-ws.onclose=()=>addLog(`${endpoints[i]} closed`,'gray');
+ws.onerror=()=>addLog('❌ WS Error','red');
+}catch(e){addLog('❌ API fail: '+e,'red');}
 }
 
 function parseData(data){
-if(!Array.isArray(data))data=[data];
-data.forEach(msg=>{
-if(msg.channel?.includes('/question')||msg.channel?.includes('/game')){
-const q=extractQuestion(msg.data||msg);
-if(q&&q.answers.length){questions.push(q);showQuiz();}
+if(!data?.data?.quizQuestions)return;
+(data.data.quizQuestions||[]).forEach(q=>{
+const question={
+text:q.question,
+answers:q.choices?.map(c=>({text:c.answer,correct:c.correct}))||[]
+};
+if(question.answers.length){
+questions.push(question);
+showQuiz();
+addLog(`✅ Q${questions.length}: ${question.text.slice(0,40)}`,'green');
 }
 });
-addLog(`Found ${questions.length} questions`,'green');
-}
-
-function extractQuestion(d){
-try{
-return{
-text:d.question?.question||d.quizQuestion?.question||'Q'+(questions.length+1),
-answers:(d.answerChoices||d.answers||[]).map((a,i)=>({
-text:a.answer||a.text||`Option ${i+1}`,
-index:i,
-correct:!!a.correct
-}))
-}}catch{return null;}
 }
 
 function showQuiz(){
-let html='<h2>📋 LIVE ANSWERS:</h2>';
-questions.forEach((q,i)=>{
-html+=`<div class="question"><b>Q${i+1}:</b> ${q.text}<div>`;
-q.answers.forEach(a=>{
-let cls=a.correct?'correct':'';
-html+=`<div class="answer ${cls}">📍 ${a.text}</div>`;
-});
-html+='</div></div>';
-});
-document.getElementById('quiz').innerHTML=html;
-document.getElementById('status').innerHTML='✅ Answers extracted! Scroll up ⬆️';
+let h='<h2>✅ ANSWERS:</h2>';
+questions.forEach((q,i)=>h+=`<div class="question"><b>Q${i+1}:</b> ${q.text}<div>${q.answers.map(a=>`<div class="answer ${a.correct?'correct':''}">📍 ${a.text}</div>`).join('')}</div></div>`);
+document.getElementById('quiz').innerHTML=h;
 }
 </script></body></html>
