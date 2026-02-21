@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kahoot Quiz Extractor</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        input { padding: 10px; font-size: 18px; width: 200px; }
+        button { padding: 10px 20px; font-size: 18px; background: #007bff; color: white; border: none; cursor: pointer; }
+        #status { margin: 20px 0; padding: 10px; background: #f8f9fa; border-radius: 5px; }
+        .question { margin: 15px 0; padding: 15px; background: #e9ecef; border-left: 4px solid #007bff; }
+        .answer { margin: 5px 0; padding: 8px; background: white; border-radius: 3px; }
+        .correct { background: #d4edda !important; border: 2px solid #28a745 !important; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Kahoot Quiz Extractor</h1>
+    <input type="text" id="pin" placeholder="Enter Game PIN" maxlength="7">
+    <button onclick="joinGame()">Join & Extract</button>
+    <div id="status">Enter PIN and click Join</div>
+    <div id="quiz"></div>
+
+    <script>
+        let ws = null;
+        let gamePin = '';
+        let questions = [];
+
+        function joinGame() {
+            gamePin = document.getElementById('pin').value.trim().toUpperCase();
+            if (!gamePin || gamePin.length !== 6) {
+                document.getElementById('status').innerHTML = '❌ Enter valid 6-digit PIN';
+                return;
+            }
+
+            document.getElementById('status').innerHTML = '🔄 Connecting to game...';
+            document.getElementById('quiz').innerHTML = '';
+
+            // Kahoot WebSocket endpoints (reverse-engineered)
+            const wsUrl = `wss://kahoot.it/cometd/${gamePin.toLowerCase()}`;
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                document.getElementById('status').innerHTML = '✅ Connected! Waiting for quiz data...';
+                
+                // Send initial handshake (mimic mobile client)
+                ws.send(JSON.stringify([
+                    {channel: '/meta/handshake', version: '1.0', supportedConnectionTypes: ['websocket']},
+                    {channel: '/service/player', data: {gameid: gamePin, host: 'kahoot.it', id: Math.random().toString(36).substr(2, 9)}}
+                ]));
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    parseQuizData(data);
+                } catch(e) {
+                    // Handle binary packets or non-JSON
+                }
+            };
+
+            ws.onerror = () => {
+                document.getElementById('status').innerHTML = '❌ Connection failed. PIN valid?';
+            };
+        }
+
+        function parseQuizData(messages) {
+            if (!Array.isArray(messages)) messages = [messages];
+
+            messages.forEach(msg => {
+                if (!msg.channel || !msg.data) return;
+
+                // Question data patterns
+                if (msg.channel.includes('/game') || msg.channel.includes('/question')) {
+                    const data = msg.data;
+                    
+                    // Extract question text and answers
+                    if (data.question || data.questions || data.questionObject) {
+                        const q = {
+                            text: data.question?.question || data.questions?.[0]?.question || 'Unknown',
+                            answers: [],
+                            correctIndex: null
+                        };
+
+                        // Parse answer choices
+                        const choices = data.question?.answerChoices || data.answers || [];
+                        choices.forEach((ans, i) => {
+                            q.answers.push({
+                                text: ans.answer || ans.text || `Answer ${i+1}`,
+                                index: i,
+                                correct: ans.correct || false
+                            });
+                            if (ans.correct) q.correctIndex = i;
+                        });
+
+                        // Avoid duplicates
+                        const exists = questions.some(q2 => q2.text === q.text);
+                        if (!exists) {
+                            questions.push(q);
+                            displayQuiz();
+                        }
+                    }
+                }
+            });
+        }
+
+        function displayQuiz() {
+            let html = '<h2>📋 Extracted Quiz:</h2>';
+            questions.forEach((q, i) => {
+                html += `<div class="question">
+                    <strong>Q${i+1}:</strong> ${q.text}
+                    <div>`;
+                q.answers.forEach(ans => {
+                    const correctClass = ans.correct ? 'correct' : '';
+                    html += `<div class="answer ${correctClass}">📍 ${ans.text}</div>`;
+                });
+                html += '</div></div>';
+            });
+            document.getElementById('quiz').innerHTML = html;
+            document.getElementById('status').innerHTML = `✅ Found ${questions.length} questions`;
+        }
+
+        // Auto-reconnect on close
+        window.onbeforeunload = () => ws?.close();
+    </script>
+</body>
+</html>
