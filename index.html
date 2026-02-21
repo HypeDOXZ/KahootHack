@@ -1,128 +1,95 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kahoot Quiz Extractor</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
-        input { padding: 10px; font-size: 18px; width: 200px; }
-        button { padding: 10px 20px; font-size: 18px; background: #007bff; color: white; border: none; cursor: pointer; }
-        #status { margin: 20px 0; padding: 10px; background: #f8f9fa; border-radius: 5px; }
-        .question { margin: 15px 0; padding: 15px; background: #e9ecef; border-left: 4px solid #007bff; }
-        .answer { margin: 5px 0; padding: 8px; background: white; border-radius: 3px; }
-        .correct { background: #d4edda !important; border: 2px solid #28a745 !important; }
-    </style>
-</head>
-<body>
-    <h1>🔍 Kahoot Quiz Extractor</h1>
-    <input type="text" id="pin" placeholder="Enter Game PIN" maxlength="7">
-    <button onclick="joinGame()">Join & Extract</button>
-    <div id="status">Enter PIN and click Join</div>
-    <div id="quiz"></div>
+<html><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kahoot Hack - School Mode</title>
+<style>body{font-family:Arial;max-width:700px;margin:50px auto;padding:20px;background:#f0f2f5}
+input{padding:15px;font-size:20px;width:250px;border:2px solid #007bff;border-radius:8px}
+button{padding:15px 30px;font-size:18px;background:#28a745;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold}
+button:hover{background:#218838}
+#status{margin:20px 0;padding:15px;background:white;border-radius:8px;border-left:5px solid #007bff;font-size:16px}
+.log{padding:10px;margin:5px 0;background:#e9ecef;border-radius:5px;font-family:monospace;font-size:14px}
+.question{margin:20px 0;padding:20px;background:#d4edda;border-radius:10px;border-left:5px solid #28a745}
+.answer{padding:10px;margin:5px 0;background:white;border-radius:5px}
+.correct{background:#28a745 !important;color:white !important;font-weight:bold !important}
+</style>
+</head><body>
+<h1>🎮 Kahoot Hack (School Chromebook)</h1>
+<input type="text" id="pin" placeholder="Enter 6-7 char PIN" maxlength="7" style="text-transform:uppercase">
+<button onclick="joinGame()">🚀 Extract Answers</button>
+<div id="status">Enter PIN & click Extract</div>
+<div id="debug"></div>
+<div id="quiz"></div>
 
-    <script>
-        let ws = null;
-        let gamePin = '';
-        let questions = [];
+<script>
+let ws=null, gamePin='', logs=[], questions=[];
+const debugDiv=document.getElementById('debug');
 
-        function joinGame() {
-            gamePin = document.getElementById('pin').value.trim().toUpperCase();
-            if (!gamePin || gamePin.length !== 6) {
-                document.getElementById('status').innerHTML = '❌ Enter valid 6-digit PIN';
-                return;
-            }
+function addLog(msg,color='black'){logs.push(msg);debugDiv.innerHTML=logs.slice(-10).map(l=>`<div class="log" style="color:${color}">${l}</div>`).join('');}
 
-            document.getElementById('status').innerHTML = '🔄 Connecting to game...';
-            document.getElementById('quiz').innerHTML = '';
+function joinGame(){
+gamePin=document.getElementById('pin').value.trim().toUpperCase();
+if(gamePin.length<6){addLog('❌ Need 6-7 chars','red');return;}
+document.getElementById('quiz').innerHTML='';questions=[];logs=[];
+addLog(`🔄 Testing PIN: ${gamePin}`,'blue');
 
-            // Kahoot WebSocket endpoints (reverse-engineered)
-            const wsUrl = `wss://kahoot.it/cometd/${gamePin.toLowerCase()}`;
-            
-            ws = new WebSocket(wsUrl);
-            
-            ws.onopen = () => {
-                document.getElementById('status').innerHTML = '✅ Connected! Waiting for quiz data...';
-                
-                // Send initial handshake (mimic mobile client)
-                ws.send(JSON.stringify([
-                    {channel: '/meta/handshake', version: '1.0', supportedConnectionTypes: ['websocket']},
-                    {channel: '/service/player', data: {gameid: gamePin, host: 'kahoot.it', id: Math.random().toString(36).substr(2, 9)}}
-                ]));
-            };
+const endpoints=['kahoot.it','kahoot.to','create.kahoot.it'];
+connectNext(endpoints,0);
+}
 
-            ws.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    parseQuizData(data);
-                } catch(e) {
-                    // Handle binary packets or non-JSON
-                }
-            };
+function connectNext(endpoints,i){
+if(i>=endpoints.length){addLog('❌ All servers failed. Game LIVE? Try again in 30s','red');return;}
+const url=`wss://${endpoints[i]}/cometd/${gamePin.toLowerCase()}`;
+addLog(`Trying ${endpoints[i]}...`,'orange');
+ws=new WebSocket(url);
 
-            ws.onerror = () => {
-                document.getElementById('status').innerHTML = '❌ Connection failed. PIN valid?';
-            };
-        }
+ws.onopen=()=>{
+addLog(`✅ ${endpoints[i]} connected!`,'green');
+ws.send(JSON.stringify([{channel:'/meta/handshake',version:'1.0',supportedConnectionTypes:['websocket'],id:'1'},{channel:'/service/player',data:{gameid:gamePin,host:endpoints[i],id:'p'+Date.now()},id:'2'}]));
+};
 
-        function parseQuizData(messages) {
-            if (!Array.isArray(messages)) messages = [messages];
+ws.onmessage=e=>{
+addLog(`📦 Packet (${e.data.length} bytes)`,'purple');
+try{parseData(JSON.parse(e.data));}catch{addLog('Raw data received','gray');}
+};
 
-            messages.forEach(msg => {
-                if (!msg.channel || !msg.data) return;
+ws.onerror=()=>setTimeout(()=>connectNext(endpoints,i+1),1500);
+ws.onclose=()=>addLog(`${endpoints[i]} closed`,'gray');
+}
 
-                // Question data patterns
-                if (msg.channel.includes('/game') || msg.channel.includes('/question')) {
-                    const data = msg.data;
-                    
-                    // Extract question text and answers
-                    if (data.question || data.questions || data.questionObject) {
-                        const q = {
-                            text: data.question?.question || data.questions?.[0]?.question || 'Unknown',
-                            answers: [],
-                            correctIndex: null
-                        };
+function parseData(data){
+if(!Array.isArray(data))data=[data];
+data.forEach(msg=>{
+if(msg.channel?.includes('/question')||msg.channel?.includes('/game')){
+const q=extractQuestion(msg.data||msg);
+if(q&&q.answers.length){questions.push(q);showQuiz();}
+}
+});
+addLog(`Found ${questions.length} questions`,'green');
+}
 
-                        // Parse answer choices
-                        const choices = data.question?.answerChoices || data.answers || [];
-                        choices.forEach((ans, i) => {
-                            q.answers.push({
-                                text: ans.answer || ans.text || `Answer ${i+1}`,
-                                index: i,
-                                correct: ans.correct || false
-                            });
-                            if (ans.correct) q.correctIndex = i;
-                        });
+function extractQuestion(d){
+try{
+return{
+text:d.question?.question||d.quizQuestion?.question||'Q'+(questions.length+1),
+answers:(d.answerChoices||d.answers||[]).map((a,i)=>({
+text:a.answer||a.text||`Option ${i+1}`,
+index:i,
+correct:!!a.correct
+}))
+}}catch{return null;}
+}
 
-                        // Avoid duplicates
-                        const exists = questions.some(q2 => q2.text === q.text);
-                        if (!exists) {
-                            questions.push(q);
-                            displayQuiz();
-                        }
-                    }
-                }
-            });
-        }
-
-        function displayQuiz() {
-            let html = '<h2>📋 Extracted Quiz:</h2>';
-            questions.forEach((q, i) => {
-                html += `<div class="question">
-                    <strong>Q${i+1}:</strong> ${q.text}
-                    <div>`;
-                q.answers.forEach(ans => {
-                    const correctClass = ans.correct ? 'correct' : '';
-                    html += `<div class="answer ${correctClass}">📍 ${ans.text}</div>`;
-                });
-                html += '</div></div>';
-            });
-            document.getElementById('quiz').innerHTML = html;
-            document.getElementById('status').innerHTML = `✅ Found ${questions.length} questions`;
-        }
-
-        // Auto-reconnect on close
-        window.onbeforeunload = () => ws?.close();
-    </script>
-</body>
-</html>
+function showQuiz(){
+let html='<h2>📋 LIVE ANSWERS:</h2>';
+questions.forEach((q,i)=>{
+html+=`<div class="question"><b>Q${i+1}:</b> ${q.text}<div>`;
+q.answers.forEach(a=>{
+let cls=a.correct?'correct':'';
+html+=`<div class="answer ${cls}">📍 ${a.text}</div>`;
+});
+html+='</div></div>';
+});
+document.getElementById('quiz').innerHTML=html;
+document.getElementById('status').innerHTML='✅ Answers extracted! Scroll up ⬆️';
+}
+</script></body></html>
